@@ -98,7 +98,13 @@ internal sealed class ConfigureJwtBearerOptions(IOptions<JwtOptions> jwtOptions)
                 await ctx.Response.WriteProblemAsync(
                     StatusCodes.Status401Unauthorized,
                     code,
-                    "Authentication is required to access this resource.");
+                    "Authentication is required to access this resource.",
+                    // Re-stated on the far side of the response reset, which would otherwise drop
+                    // the flag OnAuthenticationFailed set.
+                    configureHeaders: headers =>
+                    {
+                        if (expired) headers["x-token-expired"] = "true";
+                    });
             },
 
             OnForbidden = ctx => ctx.Response.WriteProblemAsync(

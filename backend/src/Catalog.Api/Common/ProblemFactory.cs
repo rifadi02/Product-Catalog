@@ -53,12 +53,30 @@ public static class ProblemFactory
             ? Activity.Current?.Id ?? string.Empty
             : context.TraceIdentifier;
 
+    /// <summary>The single serialisation of a problem document, so a body written by middleware
+    /// and one returned by a controller are byte-for-byte the same shape.</summary>
+    public static string Serialize(ProblemDetails problem) => JsonSerializer.Serialize(problem, Json);
+
+    /// <param name="response">The response to reset and write the problem document to.</param>
+    /// <param name="status">HTTP status code.</param>
+    /// <param name="code">Stable machine-readable error code.</param>
+    /// <param name="detail">Human-readable explanation.</param>
+    /// <param name="errors">Optional field-scoped validation messages.</param>
+    /// <param name="configureHeaders">
+    /// Applied after the response is reset and before it is committed. It exists because
+    /// <c>HttpResponse.Clear()</c> discards headers set earlier in the request — which is
+    /// correct (a half-written 200's headers must not survive onto a 401) but silently ate
+    /// <c>x-token-expired</c>, the one header the SPA needs in order to tell "refresh me" apart
+    /// from "log in again". Any header that belongs to the problem response has to be set here,
+    /// on the far side of the reset.
+    /// </param>
     public static async Task WriteProblemAsync(
         this HttpResponse response,
         int status,
         string code,
         string detail,
-        IDictionary<string, string[]>? errors = null)
+        IDictionary<string, string[]>? errors = null,
+        Action<IHeaderDictionary>? configureHeaders = null)
     {
         if (response.HasStarted) return;
 
@@ -68,6 +86,8 @@ public static class ProblemFactory
         response.StatusCode = status;
         response.ContentType = "application/problem+json";
 
-        await response.WriteAsync(JsonSerializer.Serialize(problem, Json));
+        configureHeaders?.Invoke(response.Headers);
+
+        await response.WriteAsync(Serialize(problem));
     }
 }
