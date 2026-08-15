@@ -109,8 +109,8 @@ the caching code path is identical either way.
 
 ```bash
 cd backend
-dotnet test                                                    # all three projects
-dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+dotnet test                          # all three projects
+./coverage.ps1     # or ./coverage.sh — all three, merged into one coverage report
 
 cd ../frontend
 npm run test:run    # Vitest
@@ -119,16 +119,35 @@ npm run e2e         # Playwright — needs the stack up
 
 | Project | Count | Needs Docker | Covers |
 |---|---:|---|---|
-| `Catalog.UnitTests` | 144 | no | Domain invariants, handlers, validators, paging, ETag, LIKE escaping |
+| `Catalog.UnitTests` | 181 | no | Domain invariants, handlers, validators, paging, ETag, LIKE escaping, controllers, the exception middleware, log redaction |
 | `Catalog.ArchitectureTests` | 9 | no | Dependency direction, sealed handlers, no public entity setters |
-| `Catalog.IntegrationTests` | 57 | **yes** (Testcontainers Postgres) | Every endpoint, the error contract, rotation, roles, cache invalidation |
+| `Catalog.IntegrationTests` | 70 | **yes** (Testcontainers Postgres) | Every endpoint, the error contract, rotation, roles, cache invalidation |
 
 Integration tests **skip rather than fail** when no Docker daemon is reachable. A red run on a
 machine without Docker trains people to ignore red runs.
 
-Unit tests alone cover **88.5% of lines and 93.8% of branches** across Domain and Application.
-`Program.cs` and `Migrations/` are excluded — see `coverlet.runsettings` for why. The API and
-Infrastructure layers are covered by the integration suite, which needs Docker.
+#### Coverage
+
+`./coverage.ps1` runs all three suites and merges their reports, because each one measures a
+different slice: the unit suite covers Domain, Application and Api; the integration suite covers
+Infrastructure. Quoting a single report would be quoting a fraction of the solution.
+
+| Assembly | Line | Branch |
+|---|---:|---:|
+| `Catalog.Api` | 95.7% | 66.3% |
+| `Catalog.Application` | 100% | 94.4% |
+| `Catalog.Domain` | 94.3% | 93.5% |
+| `Catalog.Infrastructure` | 96.0% | 43.8% |
+| **Solution** | **96.1%** | **73.9%** |
+
+`Program.cs`, `Migrations/` and `AppDbContextFactory` are excluded — composition-root wiring,
+generated code, and a design-time entry point respectively. See `coverlet.runsettings`.
+
+Branch coverage is the honest weak spot, and it is concentrated: `DatabaseSeeder` (demo data,
+never run in a test), `ApiVersionParameterFilter` (Swagger presentation), and the cost-factor
+branch in `BCryptPasswordHasher`. The figures above come from a run with Docker available —
+**without it the integration tests skip and Infrastructure reads far lower**, which is a fact about
+the run, not about the code.
 
 ---
 
@@ -328,13 +347,19 @@ test that breaks when the demo data changes.
 ## CI/CD
 
 [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml) runs on every push to `main` and every
-pull request against it. The two build jobs are independent and run in parallel:
+pull request against it. The two build jobs are independent and run in parallel, both gated on a
+fast secret-hygiene check:
 
 | Job | Runner | Does |
 |---|---|---|
-| `backend` | `ubuntu-latest` | restore → build → `dotnet test` (all three suites) → build image → push |
+| `secrets` | `ubuntu-latest` | fails the run if any credential-bearing file is tracked in git |
+| `backend` | `ubuntu-latest` | restore → build → `dotnet test` (all three suites) → merge coverage → build image → push |
 | `frontend` | `ubuntu-latest` | `npm ci` → lint → `vitest run` → `vite build` → build image → push |
 | `deploy` | `self-hosted` | pull both images, `docker compose up -d`, wait for `/health/ready` |
+
+The backend job publishes a merged coverage report as a run artifact and writes its summary to the
+job summary page, so the number in this README can be checked against the run that produced it
+rather than taken on trust.
 
 NuGet packages and npm modules are cached between runs, as are the Docker build layers (via the
 Actions cache backend). Images go to this repository's GHCR namespace as
@@ -347,6 +372,18 @@ when no Docker daemon is reachable — a green run on a container-less runner wo
 job therefore stays on `ubuntu-latest`, and uploads a `.trx` artifact so the skip count is visible.
 
 ### Deploying to local Docker
+
+> **There is no public deployment of this project, and the `deploy` job does not create one.**
+> It targets a **self-hosted runner on the maintainer's own machine** and brings the stack up on
+> that machine's Docker daemon — `http://localhost:8080`, reachable from that host and nowhere
+> else. Unless you have registered such a runner against your fork, the job will simply queue with
+> no runner to take it, which is the expected behaviour and not a broken pipeline.
+>
+> To see the application running, run it yourself — it is two commands, and the
+> [Running it locally](#running-it-locally--5-steps) section at the top is the whole procedure.
+> A hosted demo was scoped out rather than half-built: it needs a cloud account, a managed
+> Postgres, and a TLS certificate to be worth linking to, and none of those are part of what this
+> project sets out to show.
 
 `deploy` runs only on `main`, and only on a **self-hosted runner** — a GitHub-hosted one cannot
 reach a local Docker daemon. To set it up:
@@ -387,6 +424,14 @@ and the limiter is theatre. Configure it before deploying behind one.
 `.env.example` is committed with placeholders. The development signing key in
 `appsettings.Development.json` is committed on purpose so `dotnet run` works with no setup — it
 is worthless and must never appear elsewhere.
+
+The working tree once held `App Config Dev/Stg/Prod.txt`, carrying live credentials in plaintext.
+Those files have been **deleted**, and the `App Config *.txt` pattern stays in `.gitignore` as a
+second line of defence rather than as the fix. Ignoring a secret is not remediation: if any of
+those values ever reached a commit, a synced folder, or a backup, **they must be rotated at the
+source** — deleting the file does not un-share the credential. CI enforces the rule going forward
+with a `Check for committed secrets` step that fails the run if a file matching those patterns is
+ever tracked again.
 
 **Log redaction.** A Serilog destructuring policy masks any property named `password`,
 `confirmPassword`, `accessToken`, `refreshToken`, `tokenHash`, `signingKey`, and similar. Making
