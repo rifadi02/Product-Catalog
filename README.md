@@ -119,9 +119,9 @@ npm run e2e         # Playwright — needs the stack up
 
 | Project | Count | Needs Docker | Covers |
 |---|---:|---|---|
-| `Catalog.UnitTests` | 181 | no | Domain invariants, handlers, validators, paging, ETag, LIKE escaping, controllers, the exception middleware, log redaction |
+| `Catalog.UnitTests` | 200 | no | Domain invariants, handlers, validators, paging, ETag, LIKE escaping, controllers, the exception middleware, log redaction |
 | `Catalog.ArchitectureTests` | 9 | no | Dependency direction, sealed handlers, no public entity setters |
-| `Catalog.IntegrationTests` | 70 | **yes** (Testcontainers Postgres) | Every endpoint, the error contract, rotation, roles, cache invalidation |
+| `Catalog.IntegrationTests` | 76 | **yes** (Testcontainers Postgres) | Every endpoint, the error contract, rotation, roles, cache invalidation |
 
 Integration tests **skip rather than fail** when no Docker daemon is reachable. A red run on a
 machine without Docker trains people to ignore red runs.
@@ -134,20 +134,26 @@ Infrastructure. Quoting a single report would be quoting a fraction of the solut
 
 | Assembly | Line | Branch |
 |---|---:|---:|
-| `Catalog.Api` | 95.7% | 66.3% |
+| `Catalog.Api` | 96.7% | 84.6% |
 | `Catalog.Application` | 100% | 94.4% |
 | `Catalog.Domain` | 94.3% | 93.5% |
-| `Catalog.Infrastructure` | 96.0% | 43.8% |
-| **Solution** | **96.1%** | **73.9%** |
+| `Catalog.Infrastructure` | 97.4% | 75.0% |
+| **Solution** | **97.0%** | **87.0%** |
 
 `Program.cs`, `Migrations/` and `AppDbContextFactory` are excluded — composition-root wiring,
 generated code, and a design-time entry point respectively. See `coverlet.runsettings`.
 
-Branch coverage is the honest weak spot, and it is concentrated: `DatabaseSeeder` (demo data,
-never run in a test), `ApiVersionParameterFilter` (Swagger presentation), and the cost-factor
-branch in `BCryptPasswordHasher`. The figures above come from a run with Docker available —
-**without it the integration tests skip and Infrastructure reads far lower**, which is a fact about
-the run, not about the code.
+Branch coverage sits below line coverage, and the gap is worth explaining rather than rounding
+off. There are only 184 branches in the whole solution, so each uncovered one costs about half a
+percentage point and a handful of misses moves the figure a long way. Most of what remains is the
+null arm of a `?.` or `??` on a path where the value cannot be null inside a live request —
+`RemoteIpAddress` behind Kestrel, a `TraceIdentifier` Kestrel always assigns — plus
+`ApiVersionParameterFilter` and `DatabaseSeeder`, which are Swagger presentation and demo data.
+Driving those to 100% would mean writing tests that assert the framework's behaviour rather than
+this application's.
+
+The figures come from a run with Docker available. **Without it the integration tests skip and
+Infrastructure reads far lower**, which is a fact about the run, not about the code.
 
 ---
 
