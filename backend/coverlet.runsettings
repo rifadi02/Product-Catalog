@@ -6,6 +6,11 @@
 
   (prefix each bracketed switch with a double dash; XML comments cannot contain one.)
 
+  Scope is every production assembly — Domain, Application, Api and Infrastructure — because a
+  figure quoted for two of the four is not a figure for the solution. Api and Infrastructure are
+  reached by the controller unit tests and the Testcontainers integration suite respectively, so
+  each test project emits its own report; `dotnet run coverage` in dev.ps1 merges them.
+
   The exclusions are the things a coverage number is actively misleading about: composition-root
   wiring and generated migrations. Counting them inflates the figure without testing anything.
 -->
@@ -16,14 +21,24 @@
         <Configuration>
           <Format>opencover,cobertura</Format>
 
-          <Exclude>[Catalog.Api]Catalog.Api.Program,[*]Catalog.Infrastructure.Persistence.Migrations.*</Exclude>
+          <Include>[Catalog.Api]*,[Catalog.Application]*,[Catalog.Domain]*,[Catalog.Infrastructure]*</Include>
+
+          <!-- AppDbContextFactory joins the list for the same reason as the other two: it is a
+               design-time entry point for `dotnet ef`, never reached by the running application,
+               so no runtime test can cover it and its presence only drags the figure around. -->
+          <Exclude>[Catalog.Api]Catalog.Api.Program,[*]Catalog.Infrastructure.Persistence.Migrations.*,[Catalog.Infrastructure]Catalog.Infrastructure.Persistence.AppDbContextFactory</Exclude>
 
           <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
 
           <ExcludeByFile>**/Migrations/*.cs,**/Program.cs</ExcludeByFile>
 
           <SkipAutoProps>true</SkipAutoProps>
-          <UseSourceLink>true</UseSourceLink>
+
+          <!-- Off: it rewrites file paths to raw.githubusercontent.com URLs pinned to a commit,
+               and ReportGenerator then fetches every source file over the network. Any file not
+               yet pushed 404s and drops out of the HTML report — so the report is least accurate
+               exactly when it is most useful, on code that was just written. -->
+          <UseSourceLink>false</UseSourceLink>
         </Configuration>
       </DataCollector>
     </DataCollectors>
