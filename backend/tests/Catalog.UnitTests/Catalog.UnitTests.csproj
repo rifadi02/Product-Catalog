@@ -24,6 +24,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Catalog.Domain\Catalog.Domain.csproj" />
     <ProjectReference Include="..\..\src\Catalog.Application\Catalog.Application.csproj" />
+    <!-- The controllers are unit-tested against a DefaultHttpContext, with no host and no
+         database. That covers the layer the integration suite can only reach through HTTP:
+         ETag negotiation, header plumbing, and error-to-IActionResult mapping. -->
+    <ProjectReference Include="..\..\src\Catalog.Api\Catalog.Api.csproj" />
   </ItemGroup>
 
 </Project>

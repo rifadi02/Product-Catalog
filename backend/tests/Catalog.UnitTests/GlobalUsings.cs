@@ -1,5 +1,21 @@
+global using System.Net;
+global using System.Text.Json;
+
+global using Microsoft.AspNetCore.Http;
+global using Microsoft.AspNetCore.Mvc;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Logging;
 global using Microsoft.Extensions.Logging.Abstractions;
 global using Microsoft.Extensions.Options;
+
+global using Catalog.Api.Controllers;
+global using Catalog.Api.Logging;
+global using Catalog.Api.Middleware;
+global using Catalog.UnitTests.Api;
+global using Npgsql;
+global using Serilog.Core;
+global using Serilog.Events;
 
 global using Catalog.Application.Common;
 global using Catalog.Application.Common.Caching;
