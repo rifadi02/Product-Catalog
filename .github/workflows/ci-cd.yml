@@ -1,10 +1,14 @@
 name: CI/CD
 
+# `development` is this repository's default branch; `main` is kept so the workflow still fires if
+# the branch is ever renamed to the more conventional name. Listing only `main` — as this file did
+# until now — meant no run had ever been triggered: every push landed on `development`, matched
+# nothing, and the Actions tab stayed empty while the README described a pipeline in detail.
 on:
   push:
-    branches: [main]
+    branches: [development, main]
   pull_request:
-    branches: [main]
+    branches: [development, main]
 
 # A second push to the same branch makes the first one's result irrelevant. Superseded runs are
 # cancelled rather than left to finish and fight over the deploy.
@@ -278,6 +282,11 @@ jobs:
   deploy:
     name: Deploy to local Docker
     needs: [backend, frontend]
+    # Deliberately still gated on `main` while the default branch is `development`, so this job
+    # does not run. It needs a self-hosted runner on the target machine, and a job with no eligible
+    # runner does not fail — it queues indefinitely and shows the run as perpetually in progress.
+    # An orange dot that never resolves reads as a broken pipeline. Register the runner, then widen
+    # this condition to the branch you deploy from.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: self-hosted
     environment: local

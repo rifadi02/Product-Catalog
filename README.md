@@ -352,9 +352,9 @@ test that breaks when the demo data changes.
 
 ## CI/CD
 
-[`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml) runs on every push to `main` and every
-pull request against it. The two build jobs are independent and run in parallel, both gated on a
-fast secret-hygiene check:
+[`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml) runs on every push to `development`
+(this repository's default branch) or `main`, and every pull request against either. The two build
+jobs are independent and run in parallel, both gated on a fast secret-hygiene check:
 
 | Job | Runner | Does |
 |---|---|---|
