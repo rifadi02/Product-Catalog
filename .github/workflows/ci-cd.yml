@@ -20,9 +20,44 @@ env:
   FRONTEND_IMAGE: ${{ github.repository }}/catalog-web
 
 jobs:
+  # ── Secret hygiene ─────────────────────────────────────────────────────────────────────────
+  # The repository previously carried `App Config Dev/Stg/Prod.txt` with live credentials in
+  # plaintext. They were deleted and the pattern added to .gitignore — but .gitignore only stops
+  # the *accidental* add, and says nothing once a file is already tracked or is force-added. This
+  # job is the part that actually fails a build, so the rule survives the person who remembers it.
+  secrets:
+    name: Check for committed secrets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail on tracked credential files
+        run: |
+          matches=$(git ls-files -z \
+            | tr '\0' '\n' \
+            | grep -E -i '(^|/)(App Config .*\.txt|\.env|.*\.env|secrets\.json|.*\.pfx|.*\.p12)$' \
+            | grep -v -E '(^|/)\.env\.example$' || true)
+
+          if [ -n "$matches" ]; then
+            echo "::error::Credential-bearing files are tracked in git:"
+            echo "$matches"
+            echo "Delete them, and ROTATE the secrets at the source — untracking is not remediation."
+            exit 1
+          fi
+
+          echo "No credential-bearing files are tracked."
+
   # ── Backend ────────────────────────────────────────────────────────────────────────────────
   backend:
     name: Backend (.NET)
+    # Gates on the secret check rather than running beside it: these jobs publish an image built
+    # from the working tree, and a leaked credential must not reach a registry while the run that
+    # would have caught it is still going. The check is a checkout and one `git ls-files`, so the
+    # serialisation costs seconds.
+    needs: [secrets]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -56,6 +91,11 @@ jobs:
       - name: Restore
         run: dotnet restore Catalog.slnx
 
+      # ReportGenerator, pinned in backend/.config/dotnet-tools.json so CI and a developer's
+      # machine merge coverage with the same version.
+      - name: Restore local tools
+        run: dotnet tool restore
+
       - name: Build
         run: dotnet build Catalog.slnx --no-restore -c Release
 
@@ -70,12 +110,37 @@ jobs:
           --collect:"XPlat Code Coverage"
           --logger "trx;LogFileName=test-results.trx"
 
+      # One coverage file per test project measures one slice of the solution: Domain and
+      # Application from the unit suite, Api from the controller and middleware tests,
+      # Infrastructure almost entirely from the Testcontainers suite. Merging them is what makes
+      # the published figure a figure for the solution rather than for whichever report was read.
+      - name: Merge coverage reports
+        if: always()
+        run: >
+          dotnet reportgenerator
+          "-reports:**/TestResults/**/coverage.cobertura.xml"
+          "-targetdir:artifacts/coverage"
+          "-reporttypes:Html;TextSummary;Cobertura;MarkdownSummaryGithub"
+          "-verbosity:Warning"
+
+      - name: Publish coverage summary
+        if: always()
+        run: cat artifacts/coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: backend-test-results
           path: backend/**/TestResults/**
+          if-no-files-found: warn
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/artifacts/coverage
           if-no-files-found: warn
 
       # GHCR rejects uppercase in an image path, and github.repository preserves the owner's
@@ -121,6 +186,7 @@ jobs:
   # ── Frontend ───────────────────────────────────────────────────────────────────────────────
   frontend:
     name: Frontend (React)
+    needs: [secrets]
     runs-on: ubuntu-latest
     permissions:
       contents: read
