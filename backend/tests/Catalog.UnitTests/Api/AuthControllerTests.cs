@@ -170,6 +170,23 @@ public sealed class AuthControllerTests
     }
 
     [Fact]
+    public void Me_reports_blank_fields_rather_than_null_for_a_sparse_token()
+    {
+        _controller.WithHttpContext();
+        _currentUser.UserId.Returns(Caller);
+        _currentUser.Email.Returns((string?)null);
+        _currentUser.Role.Returns((UserRole?)null);
+
+        var summary = _controller.Me().Should().BeOfType<OkObjectResult>()
+                                 .Which.Value.Should().BeOfType<UserSummary>().Subject;
+
+        summary.Id.Should().Be(Caller);
+        summary.Email.Should().BeEmpty();
+        summary.Role.Should().BeEmpty(
+            "UserSummary declares non-nullable strings; a null here would break the SPA's parser");
+    }
+
+    [Fact]
     public void Me_rejects_a_token_with_no_usable_subject_claim()
     {
         _controller.WithHttpContext();

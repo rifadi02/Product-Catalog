@@ -102,6 +102,36 @@ public sealed class ProductEndpointTests(CatalogApiFactory factory) : IAsyncLife
         ids.Should().BeInAscendingOrder();
     }
 
+    /// <summary>
+    /// Every sortable column in both directions. The whitelist in <c>ApplyOrdering</c> is a switch
+    /// over (field, direction), and an arm that no test takes is an arm that can silently order by
+    /// the wrong column — the kind of defect that looks like "the list is a bit odd" rather than
+    /// like a failure, and that only shows up against a real database because the ordering is
+    /// translated to SQL rather than evaluated in memory.
+    /// </summary>
+    [DockerTheory]
+    [InlineData("Name", "Asc", "Alpha,Beta,Gamma")]
+    [InlineData("Name", "Desc", "Gamma,Beta,Alpha")]
+    [InlineData("Price", "Asc", "Gamma,Alpha,Beta")]
+    [InlineData("Price", "Desc", "Beta,Alpha,Gamma")]
+    [InlineData("CreatedAt", "Asc", "Beta,Gamma,Alpha")]
+    [InlineData("CreatedAt", "Desc", "Alpha,Gamma,Beta")]
+    public async Task Every_sort_column_orders_by_the_column_it_names(
+        string sortBy, string direction, string expected)
+    {
+        await factory.AddProductAsync(new ProductBuilder()
+            .Named("Alpha").Priced(20m).CreatedAt(Baseline.AddDays(3)).Build());
+        await factory.AddProductAsync(new ProductBuilder()
+            .Named("Beta").Priced(30m).CreatedAt(Baseline.AddDays(1)).Build());
+        await factory.AddProductAsync(new ProductBuilder()
+            .Named("Gamma").Priced(10m).CreatedAt(Baseline.AddDays(2)).Build());
+
+        var page = await factory.CreateClient().GetFromJsonAsync<PagedResponse<ProductDto>>(
+            $"/api/v1/products?sortBy={sortBy}&direction={direction}");
+
+        page!.Items.Select(p => p.Name).Should().Equal(expected.Split(','));
+    }
+
     [DockerFact]
     public async Task Search_matches_a_case_insensitive_substring()
     {

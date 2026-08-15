@@ -1,4 +1,7 @@
+global using System.Diagnostics;
+global using System.IdentityModel.Tokens.Jwt;
 global using System.Net;
+global using System.Security.Claims;
 global using System.Text.Json;
 
 global using Microsoft.AspNetCore.Http;
@@ -9,7 +12,9 @@ global using Microsoft.Extensions.Logging;
 global using Microsoft.Extensions.Logging.Abstractions;
 global using Microsoft.Extensions.Options;
 
+global using Catalog.Api.Common;
 global using Catalog.Api.Controllers;
+global using Catalog.Api.Identity;
 global using Catalog.Api.Logging;
 global using Catalog.Api.Middleware;
 global using Catalog.UnitTests.Api;
