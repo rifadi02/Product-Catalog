@@ -1,0 +1,19 @@
+# node_modules is the big one: the image runs `npm ci` itself, and a host-built tree (Windows,
+# Node 24) would be both useless and slower to upload than the install it replaces.
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# `.env` is git-ignored but would still be picked up by the build context, and Vite reads it at
+# build time — a stray local value would get baked into the published bundle instead of the
+# VITE_API_BASE_URL build-arg.
+.env
+.env.*
+!.env.example
+
+*.md
+playwright-report/
+test-results/
+npm-debug.log*

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Coverage configuration (§5 step 12). Run it with:
+
+    dotnet test [collect:"XPlat Code Coverage"] [settings coverlet.runsettings]
+
+  (prefix each bracketed switch with a double dash; XML comments cannot contain one.)
+
+  The exclusions are the things a coverage number is actively misleading about: composition-root
+  wiring and generated migrations. Counting them inflates the figure without testing anything.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>opencover,cobertura</Format>
+
+          <Exclude>[Catalog.Api]Catalog.Api.Program,[*]Catalog.Infrastructure.Persistence.Migrations.*</Exclude>
+
+          <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+
+          <ExcludeByFile>**/Migrations/*.cs,**/Program.cs</ExcludeByFile>
+
+          <SkipAutoProps>true</SkipAutoProps>
+          <UseSourceLink>true</UseSourceLink>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

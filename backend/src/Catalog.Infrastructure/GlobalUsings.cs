@@ -1,0 +1,37 @@
+global using System.IdentityModel.Tokens.Jwt;
+global using System.Reflection;
+global using System.Security.Claims;
+global using System.Security.Cryptography;
+global using System.Text;
+global using System.Text.Json;
+global using System.Text.Json.Serialization;
+
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.Design;
+global using Microsoft.EntityFrameworkCore.Metadata;
+global using Microsoft.EntityFrameworkCore.Metadata.Builders;
+global using Microsoft.Extensions.Caching.Distributed;
+global using Microsoft.Extensions.Caching.Memory;
+global using Microsoft.Extensions.Caching.StackExchangeRedis;
+global using Microsoft.Extensions.Configuration;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Logging;
+global using Microsoft.Extensions.Options;
+global using Microsoft.IdentityModel.Tokens;
+
+global using Bogus;
+global using Catalog.Application.Common;
+global using Catalog.Application.Common.Interfaces;
+global using Catalog.Application.Common.Options;
+global using Catalog.Application.Features.Products;
+global using Catalog.Domain.Entities;
+global using Catalog.Domain.Enums;
+global using Catalog.Domain.ValueObjects;
+global using Catalog.Infrastructure.BackgroundJobs;
+global using Catalog.Infrastructure.Caching;
+global using Catalog.Infrastructure.Identity;
+global using Catalog.Infrastructure.Persistence;
+global using Catalog.Infrastructure.Persistence.Repositories;
+global using Catalog.Infrastructure.Persistence.Seeding;
+global using Catalog.Infrastructure.Time;

@@ -1,0 +1,99 @@
+# The deployed stack: pulls pre-built images from GHCR instead of building from source.
+#
+# docker-compose.yml is the developer path (`docker compose up --build`). This file is what the
+# CI/CD `deploy` job runs on the self-hosted runner:
+#
+#   docker compose -f docker-compose.deploy.yml pull
+#   docker compose -f docker-compose.deploy.yml up -d
+#
+# It needs REGISTRY, BACKEND_IMAGE, FRONTEND_IMAGE, IMAGE_TAG and JWT_SIGNING_KEY in the
+# environment. The workflow supplies them; locally, .env does.
+
+# Pinned explicitly so the project name does not depend on the checkout directory, which differs
+# between a developer machine and the self-hosted runner's workspace.
+name: product-catalog
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: catalog-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-catalog}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-catalog}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: catalog-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    container_name: catalog-api
+    image: ${REGISTRY:-ghcr.io}/${BACKEND_IMAGE:?BACKEND_IMAGE is required — e.g. owner/repo/catalog-api}:${IMAGE_TAG:-latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Development so that Swagger UI is served and the seeder runs — this deployment is the
+      # reviewer's demo host, matching docker-compose.yml's intent, not a production rollout.
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-catalog};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres};Include Error Detail=true"
+      Redis__Connection: "redis:6379"
+
+      Jwt__Issuer: ${JWT_ISSUER:-product-catalog-api}
+      Jwt__Audience: ${JWT_AUDIENCE:-product-catalog-spa}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required — set the repository secret, or copy .env.example to .env}
+
+      Database__MigrateOnStartup: "true"
+      Seed__Enabled: "true"
+
+      # The web container publishes on host port 5173, so the SPA's origin is exactly the value
+      # the API already allowlists by default. Keep WEB_PORT and this in step.
+      Cors__AllowedOrigins__0: ${SPA_ORIGIN:-http://localhost:5173}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    restart: unless-stopped
+    healthcheck:
+      # curl, not wget: the aspnet runtime image is Debian slim and has neither by default, so the
+      # Dockerfile installs curl explicitly. Changing one without the other silently breaks this.
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  web:
+    container_name: catalog-web
+    image: ${REGISTRY:-ghcr.io}/${FRONTEND_IMAGE:?FRONTEND_IMAGE is required — e.g. owner/repo/catalog-web}:${IMAGE_TAG:-latest}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

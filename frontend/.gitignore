@@ -1,0 +1,5 @@
+# Playwright output. The repository root already ignores node_modules/, dist/, .vite/ and .env.
+playwright-report/
+test-results/
+blob-report/
+.playwright/

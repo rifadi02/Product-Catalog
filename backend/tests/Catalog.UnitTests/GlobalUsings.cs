@@ -1,0 +1,26 @@
+global using Microsoft.Extensions.Logging.Abstractions;
+global using Microsoft.Extensions.Options;
+
+global using Catalog.Application.Common;
+global using Catalog.Application.Common.Caching;
+global using Catalog.Application.Common.Interfaces;
+global using Catalog.Application.Common.Options;
+global using Catalog.Application.Features.Auth;
+global using Catalog.Application.Features.Auth.Login;
+global using Catalog.Application.Features.Auth.Logout;
+global using Catalog.Application.Features.Auth.Refresh;
+global using Catalog.Application.Features.Auth.Register;
+global using Catalog.Application.Features.Products;
+global using Catalog.Application.Features.Products.CreateProduct;
+global using Catalog.Application.Features.Products.DeleteProduct;
+global using Catalog.Application.Features.Products.GetProductById;
+global using Catalog.Application.Features.Products.ListProducts;
+global using Catalog.Application.Features.Products.SearchProducts;
+global using Catalog.Application.Features.Products.UpdateProduct;
+global using Catalog.Domain.Common;
+global using Catalog.Domain.Entities;
+global using Catalog.Domain.Enums;
+global using Catalog.Domain.Exceptions;
+global using Catalog.Domain.ValueObjects;
+global using FluentAssertions;
+global using NSubstitute;

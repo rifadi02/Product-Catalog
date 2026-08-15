@@ -1,0 +1,91 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 is configured in CSS — there is no tailwind.config.js. */
+@theme {
+  --color-brand-50: oklch(0.97 0.014 254);
+  --color-brand-100: oklch(0.93 0.032 254);
+  --color-brand-200: oklch(0.87 0.06 254);
+  --color-brand-500: oklch(0.58 0.16 254);
+  --color-brand-600: oklch(0.51 0.17 254);
+  --color-brand-700: oklch(0.44 0.15 254);
+
+  --color-ink-500: oklch(0.55 0.01 260);
+  --color-ink-700: oklch(0.38 0.012 260);
+  --color-ink-900: oklch(0.22 0.014 260);
+
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-slate-50 text-ink-900 antialiased;
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* One visible focus treatment everywhere, including on elements kept focusable while
+     aria-disabled (§6.5 pagination). */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-600;
+  }
+
+  th,
+  td {
+    @apply text-left align-middle;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-transparent
+           bg-brand-600 px-4 py-2 text-sm font-medium text-white transition
+           hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply border-slate-300 bg-white text-ink-900 hover:bg-slate-50;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700;
+  }
+
+  .btn-ghost {
+    @apply border-transparent bg-transparent text-ink-700 hover:bg-slate-100;
+  }
+
+  .btn-sm {
+    @apply px-2.5 py-1.5 text-xs;
+  }
+
+  .input {
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
+           text-ink-900 placeholder:text-slate-400
+           focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none
+           disabled:cursor-not-allowed disabled:bg-slate-100;
+  }
+
+  .input-invalid {
+    @apply border-red-400 focus:border-red-500 focus:ring-red-100;
+  }
+
+  .label {
+    @apply mb-1 block text-sm font-medium text-ink-700;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  /* Prices are right-aligned with tabular numerals so the decimal points line up (§3.4.5). */
+  .num {
+    @apply text-right tabular-nums;
+  }
+}

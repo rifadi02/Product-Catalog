@@ -1,0 +1,117 @@
+# The ≤5-step setup rule: `cp .env.example .env && docker compose up --build` is the whole
+# thing. Postgres and Redis come up first, then the API migrates and seeds against them, then the
+# SPA is served — one command for the whole stack, nothing installed on the host but Docker.
+#
+#   db + cache   postgres:5432, redis:6379
+#   api          http://localhost:8080  (Swagger at /swagger)
+#   web          http://localhost:5173
+#
+# `web` serves the production bundle through nginx, exactly as the deployed stack does. That
+# means no hot reload: for frontend work, leave this service stopped and run `npm run dev` in
+# frontend/ instead — it publishes on the same port, so the API's CORS allowlist still matches.
+
+# Pinned explicitly: without it Compose derives the project name from the directory, so renaming
+# the checkout silently orphans the `postgres-data` volume and starts you on an empty database.
+name: product-catalog
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: catalog-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-catalog}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` alone returns true while the server is still in its bootstrap restart, so
+      # the user and database are named explicitly.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-catalog}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: catalog-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    container_name: catalog-api
+    # Named so that a local `docker compose build` tags the same image the pipeline publishes,
+    # which makes `docker compose -f docker-compose.deploy.yml up` work against a locally built
+    # image without a registry round-trip. Override REGISTRY/BACKEND_IMAGE via .env.
+    image: ${REGISTRY:-ghcr.io}/${BACKEND_IMAGE:-local/catalog-api}:${IMAGE_TAG:-latest}
+    build:
+      # Context is `backend/`, not the repository root: the Dockerfile only ever needs the .NET
+      # tree, and narrowing it here means a frontend build cannot invalidate the API's layers.
+      context: ./backend
+      dockerfile: src/Catalog.Api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Development so that Swagger UI is served and the seeder runs. This compose file is the
+      # reviewer's demo environment, not a production deployment.
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-catalog};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres};Include Error Detail=true"
+      Redis__Connection: "redis:6379"
+
+      Jwt__Issuer: ${JWT_ISSUER:-product-catalog-api}
+      Jwt__Audience: ${JWT_AUDIENCE:-product-catalog-spa}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required — copy .env.example to .env}
+
+      Database__MigrateOnStartup: "true"
+      Seed__Enabled: "true"
+
+      Cors__AllowedOrigins__0: ${SPA_ORIGIN:-http://localhost:5173}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      # curl, not wget: the aspnet runtime image is Debian slim and has neither by default, so the
+      # Dockerfile installs curl explicitly. Changing one without the other silently breaks this.
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  web:
+    container_name: catalog-web
+    # Same reason as the API above: build locally under the name the pipeline publishes.
+    image: ${REGISTRY:-ghcr.io}/${FRONTEND_IMAGE:-local/catalog-web}:${IMAGE_TAG:-latest}
+    build:
+      # Context is `frontend/` for the same reason the API's is `backend/`: the SPA build has no
+      # business invalidating its layers when a .cs file changes.
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Vite inlines import.meta.env.* at build time, so the API URL is baked into the bundle
+        # and cannot be changed at container start. It is the browser that resolves this, not the
+        # web container, so it must be a host-reachable URL — `api:8080` would not work.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api/v1}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      # Host 5173 is the origin the API allowlists by default (Cors__AllowedOrigins__0 above), so
+      # WEB_PORT and SPA_ORIGIN have to move together or every request dies in preflight.
+      - "${WEB_PORT:-5173}:80"
+
+volumes:
+  postgres-data:

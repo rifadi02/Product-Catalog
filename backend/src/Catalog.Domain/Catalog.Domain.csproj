@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- §0.1: Catalog.Domain references nothing. Not a single ProjectReference or
+       PackageReference belongs in this file. If you are tempted to add one, the type
+       you are reaching for belongs in Catalog.Application. -->
+
+</Project>

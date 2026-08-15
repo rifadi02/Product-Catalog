@@ -1,0 +1,19 @@
+# Build context is `backend/`. Without this file every build uploads the full obj/ and bin/ trees
+# plus a 92 KB spec document — and stale obj/ artifacts from a Windows host can poison a Linux
+# restore inside the image.
+
+**/bin/
+**/obj/
+**/TestResults/
+**/*.user
+**/*.suo
+
+# Docs are not inputs to the build.
+*.md
+**/*.md
+
+# Never reachable from the Dockerfile, but keep them out of the context regardless.
+**/.env
+**/*.pfx
+**/*.p12
+**/secrets.json

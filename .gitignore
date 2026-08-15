@@ -1,0 +1,55 @@
+# ── Secrets — the whole reason this file exists ──────────────────────────────
+.env
+*.env
+!.env.example
+*.pfx
+*.p12
+secrets.json
+
+# The App Config *.txt files in this folder contain live plaintext credentials. They are ignored
+# here, but ignoring is not remediation: if they have ever been committed or synced, the fix is
+# to ROTATE the secrets, not to delete the files.
+App Config *.txt
+
+# ── Documentation and assessment material — kept local, not published ────────
+# The repository is public. The assessment PDF is a third party's document, and the design/spec
+# markdown is working material rather than something to publish alongside the code.
+*.md
+*.pdf
+
+# ── Build output ─────────────────────────────────────────────────────────────
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+publish/
+*.user
+*.suo
+
+# ── Test and coverage output ─────────────────────────────────────────────────
+TestResults/
+coverage/
+coverage.*.xml
+coverage.*.json
+*.coverage
+*.trx
+
+# ── Frontend ─────────────────────────────────────────────────────────────────
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# ── Tooling ──────────────────────────────────────────────────────────────────
+.vs/
+.vscode/
+# ...except the solution path, which everyone on the team needs or the C# language server
+# silently fails to load now that the solution is not at the workspace root.
+!.vscode/settings.json
+.idea/
+*.swp
+.DS_Store

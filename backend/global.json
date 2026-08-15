@@ -1,0 +1,9 @@
+{
+  "sdk": {
+    "version": "10.0.204",
+    "//rollForward": "latestFeature, not latestPatch: the Dockerfile builds on the floating `sdk:10.0` image, which has since moved to the 10.0.3xx feature band. latestPatch refuses to cross a feature band, so the container build failed with 'A compatible .NET SDK was not found' while the host build was fine.",
+    "rollForward": "latestFeature",
+    "//allowPrerelease": "Previews stay out, so an installed 10.0.4xx-preview cannot silently become the build SDK on a developer machine.",
+    "allowPrerelease": false
+  }
+}
