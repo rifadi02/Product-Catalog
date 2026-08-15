@@ -45,6 +45,42 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 ["Seed:Enabled"] = "false"
             });
         });
+
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<IStartupFilter, TestClientAddressStartupFilter>();
+
+            services.RemoveAll<IDistributedCache>();
+            services.AddSingleton<ResettableDistributedCache>();
+            services.AddSingleton<IDistributedCache>(
+                sp => sp.GetRequiredService<ResettableDistributedCache>());
+        });
+    }
+
+    /// <summary>
+    /// A client that the rate limiter sees as its own caller. Each one gets a fresh identity, so
+    /// one test's login attempts cannot exhaust another's budget.
+    /// </summary>
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+
+        client.DefaultRequestHeaders.Add(
+            TestClientAddressStartupFilter.HeaderName, Guid.NewGuid().ToString());
+    }
+
+    /// <summary>
+    /// A client sharing a caller identity with every other client built from the same
+    /// <paramref name="clientId"/> — the way to assert on rate limiting rather than sidestep it.
+    /// </summary>
+    public HttpClient CreateClientAs(string clientId)
+    {
+        var client = CreateClient();
+
+        client.DefaultRequestHeaders.Remove(TestClientAddressStartupFilter.HeaderName);
+        client.DefaultRequestHeaders.Add(TestClientAddressStartupFilter.HeaderName, clientId);
+
+        return client;
     }
 
     public async Task InitializeAsync()
@@ -99,6 +135,11 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncLi
     /// <summary>
     /// Truncates every table so each test starts from a known empty database. Cheaper than
     /// recreating the schema, and it resets the identity sequence so product ids are predictable.
+    ///
+    /// <para>The cache is emptied in the same breath. Resetting one without the other leaves the
+    /// API answering from entries that describe rows the next test never created — and because
+    /// <c>RESTART IDENTITY</c> reissues the same ids, those entries are addressed by keys the next
+    /// test will genuinely ask for.</para>
     /// </summary>
     public async Task ResetDatabaseAsync()
     {
@@ -109,6 +150,8 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncLi
             "TRUNCATE TABLE catalog.products RESTART IDENTITY CASCADE;");
         await db.Database.ExecuteSqlRawAsync(
             "TRUNCATE TABLE identity.refresh_tokens, identity.users RESTART IDENTITY CASCADE;");
+
+        Services.GetRequiredService<ResettableDistributedCache>().Clear();
     }
 }
 
