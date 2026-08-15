@@ -32,6 +32,8 @@ try
             options.JsonSerializerOptions.Converters.Add(new TrimmingStringConverter());
         });
 
+    builder.Services.AddMalformedJsonDetection();
+
     builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
 
     builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -48,9 +50,7 @@ try
                             : e.ErrorMessage)
                         .ToArray());
 
-            var malformed = context.ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Any(e => e.Exception is System.Text.Json.JsonException);
+            var malformed = MalformedJsonDetectingFormatter.BodyWasMalformed(context.HttpContext);
 
             var status = StatusCodes.Status400BadRequest;
 
@@ -60,11 +60,7 @@ try
                 : ProblemFactory.Create(context.HttpContext, status, "validation_failed",
                     "One or more validation errors occurred.", errors);
 
-            return new ObjectResult(problem)
-            {
-                StatusCode = status,
-                ContentTypes = { "application/problem+json" }
-            };
+            return problem.ToResult(status);
         };
     });
 
