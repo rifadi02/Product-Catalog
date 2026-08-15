@@ -16,6 +16,8 @@ App Config *.txt
 # markdown is working material rather than something to publish alongside the code.
 *.md
 *.pdf
+# ...except the root README, which is the repository's front page.
+!/README.md
 
 # ── Build output ─────────────────────────────────────────────────────────────
 bin/
